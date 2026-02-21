@@ -95,3 +95,16 @@ traqcheck-test/
 - **Frontend**: React, axios, react-dropzone
 - **AI Agent**: LangChain, OpenAI, Telegram Bot API webhook
 - **Deployment**: Development servers with hot reload
+
+## Architecture Overview (10 Lines)
+
+1. We implemented a full-stack architecture with a React frontend (`react`, `axios`, `react-dropzone`) and a Flask REST backend (`flask`, `flask-cors`).
+2. The frontend at `localhost:3000` handles resume upload, candidate dashboard, profile view, and document status tracking.
+3. The backend at `localhost:5000` exposes APIs for candidate CRUD, resume parsing, document requests, Telegram linking, and webhook handling.
+4. Data is persisted in SQLite (`database.db`) with tables for candidates, documents, requests, Telegram links, and Telegram conversation sessions.
+5. Resume ingestion accepts PDF/DOCX, extracts raw text via `PyPDF2` and `python-docx`, then calls OpenAI for structured field extraction.
+6. OpenAI integration (via `openai` SDK, model `gpt-3.5-turbo`) returns JSON for name, contact, skills, company, designation, and company history.
+7. Telegram integration uses Telegram Bot API webhooks (`/telegram/webhook`) to receive candidate messages, photos, files, and text evidence.
+8. Candidate-to-chat mapping is done through `/start <phone_number>` and stored in `telegram_links`, enabling controlled outreach and traceability.
+9. Mr Traqchecker conversation logic uses `langchain` + `langchain-openai` to keep dialogue agenda-focused: PAN first, then Aadhaar.
+10. Submitted Telegram artifacts are downloaded/saved to `uploads/`, recorded in `documents`, and immediately visible in the web dashboard for verification.

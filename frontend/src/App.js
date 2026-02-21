@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import './App.css';
@@ -31,20 +31,85 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [documents, setDocuments] = useState([]);
   const [telegramUsername, setTelegramUsername] = useState('');
+  const [toasts, setToasts] = useState([]);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+  const [candidateFetchFailed, setCandidateFetchFailed] = useState(false);
+  const [pendingDeleteCandidate, setPendingDeleteCandidate] = useState(null);
 
-  useEffect(() => {
-    fetchCandidates();
-  }, []);
+  const showToast = (message, type = 'success') => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 3600);
+  };
 
-  const fetchCandidates = async () => {
+  const showToastSequence = (messages, type = 'success') => {
+    (messages || []).forEach((message, index) => {
+      setTimeout(() => showToast(message, type), index * 600);
+    });
+  };
+
+  const getCompanyTimeline = (candidate) => {
+    if (!candidate) return [];
+    const history = Array.isArray(candidate.company_history) ? candidate.company_history : [];
+    const normalized = history
+      .filter((item) => item && item.company)
+      .map((item) => ({
+        company: item.company,
+        duration: item.duration || 'Duration not available',
+        is_current: Boolean(item.is_current)
+      }));
+
+    const currentCompanies = normalized.filter((item) => item.is_current);
+    const previousCompanies = normalized.filter((item) => !item.is_current);
+    const timeline = [...currentCompanies, ...previousCompanies];
+
+    if (timeline.length > 0) return timeline.slice(0, 3);
+    if (candidate.company) {
+      return [
+        {
+          company: candidate.company,
+          duration: 'Duration not available',
+          is_current: true
+        }
+      ];
+    }
+    return [];
+  };
+
+  const fetchCandidates = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setIsLoadingCandidates(true);
+    }
     try {
       const response = await axios.get(`${API_BASE}/candidates`);
       console.log('API Call: GET /candidates', {}, 'Response:', response.data);
       setCandidates(response.data);
+      setCandidateFetchFailed(false);
     } catch (error) {
       console.error('Error fetching candidates:', error);
+      setCandidateFetchFailed(true);
+      if (!isSilent) {
+        showToast('Could not load dashboard. Retrying automatically...', 'error');
+      }
+      if (!isSilent) {
+        setTimeout(() => fetchCandidates(true), 3000);
+      }
+    } finally {
+      if (!isSilent) {
+        setIsLoadingCandidates(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCandidates();
+    const intervalId = setInterval(() => {
+      fetchCandidates(true);
+    }, 12000);
+    return () => clearInterval(intervalId);
+  }, [fetchCandidates]);
 
   const onDrop = async (acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -61,12 +126,20 @@ function App() {
         }
       });
       console.log('API Call: POST /candidates/upload', formData, 'Response:', response.data);
-      alert('Resume uploaded successfully!');
+      showToastSequence(
+        response.data.messages || [
+          'Resume uploaded successfully',
+          'Extraction successful',
+          'Fields have been saved to DB'
+        ],
+        'success'
+      );
       setUploadProgress(0);
       fetchCandidates();
     } catch (error) {
       console.error('Error uploading resume:', error);
-      alert('Error uploading resume');
+      const backendError = error?.response?.data?.error;
+      showToast(backendError || 'Error parsing the resume because extraction failed', 'error');
       setUploadProgress(0);
     }
   };
@@ -93,10 +166,10 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/candidates/${selectedCandidate.id}/request-documents`);
       console.log('API Call: POST /candidates/' + selectedCandidate.id + '/request-documents', {}, 'Response:', response.data);
-      alert('Document request sent: ' + response.data.message);
+      showToast('Document request sent successfully', 'success');
     } catch (error) {
       console.error('Error requesting documents:', error);
-      alert('Error requesting documents');
+      showToast('Error requesting documents', 'error');
     }
   };
 
@@ -104,12 +177,12 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/candidates/${id}/telegram`, { telegram_username: telegramUsername });
       console.log('API Call: POST /candidates/' + id + '/telegram', { telegram_username: telegramUsername }, 'Response:', response.data);
-      alert('Telegram username updated!');
+      showToast('Telegram username updated', 'success');
       setTelegramUsername('');
       fetchCandidates(); // Refresh
     } catch (error) {
       console.error('Error updating telegram:', error);
-      alert('Error updating telegram');
+      showToast('Error updating telegram', 'error');
     }
   };
 
@@ -131,17 +204,52 @@ function App() {
         'Response:',
         response.data
       );
-      alert('Documents submitted successfully!');
+      showToast('Documents submitted successfully', 'success');
       const docsResponse = await axios.get(`${API_BASE}/candidates/${selectedCandidate.id}/documents`);
       setDocuments(docsResponse.data);
     } catch (error) {
       console.error('Error submitting documents:', error);
-      alert('Error submitting documents');
+      showToast('Error submitting documents', 'error');
+    }
+  };
+
+  const requestDeleteCandidate = (candidate) => {
+    setPendingDeleteCandidate(candidate);
+  };
+
+  const closeDeleteModal = () => {
+    setPendingDeleteCandidate(null);
+  };
+
+  const confirmDeleteCandidate = async () => {
+    if (!pendingDeleteCandidate) return;
+    const deletingId = pendingDeleteCandidate.id;
+
+    try {
+      await axios.delete(`${API_BASE}/candidates/${deletingId}`);
+      showToast('Candidate profile and resume deleted permanently', 'success');
+      if (selectedCandidate && selectedCandidate.id === deletingId) {
+        setSelectedCandidate(null);
+        setDocuments([]);
+      }
+      setPendingDeleteCandidate(null);
+      fetchCandidates(true);
+    } catch (error) {
+      console.error('Error deleting candidate:', error);
+      showToast(error?.response?.data?.error || 'Failed to delete candidate profile', 'error');
     }
   };
 
   return (
     <div className="App">
+      <div className="toast-stack">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast ${toast.type}`}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
       <header className="App-header">
         <h1>Traqcheckjobs.com</h1>
       </header>
@@ -167,6 +275,13 @@ function App() {
 
         <div className="dashboard">
           <h2>Candidate Dashboard</h2>
+          {isLoadingCandidates && <p className="dashboard-meta">Loading candidates...</p>}
+          {!isLoadingCandidates && candidateFetchFailed && (
+            <p className="dashboard-meta error">Unable to fetch candidates right now. Auto-retrying.</p>
+          )}
+          {!isLoadingCandidates && !candidateFetchFailed && candidates.length === 0 && (
+            <p className="dashboard-meta">No candidates available yet.</p>
+          )}
           <table>
             <thead>
               <tr>
@@ -186,6 +301,13 @@ function App() {
                   <td>{candidate.extraction_status}</td>
                   <td>
                     <button onClick={() => selectCandidate(candidate.id)}>View Profile</button>
+                    <button
+                      type="button"
+                      className="danger-btn"
+                      onClick={() => requestDeleteCandidate(candidate)}
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -223,6 +345,27 @@ function App() {
               <div className="detail-item">
                 <span className="detail-label">Telegram</span>
                 <span className="detail-value">{selectedCandidate.telegram_username || 'Not set'}</span>
+              </div>
+            </div>
+
+            <div className="company-timeline">
+              <h3>Employment Timeline</h3>
+              <div className="timeline-list">
+                {getCompanyTimeline(selectedCandidate).length > 0 ? (
+                  getCompanyTimeline(selectedCandidate).map((item, index) => (
+                    <div key={`${item.company}-${index}`} className="timeline-item">
+                      <div className="timeline-item-head">
+                        <span className="timeline-company">{item.company}</span>
+                        <span className={`timeline-badge ${index === 0 ? 'current' : 'previous'}`}>
+                          {index === 0 ? 'Current' : `Previous ${index}`}
+                        </span>
+                      </div>
+                      <p className="timeline-duration">{item.duration || 'Duration not available'}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="skills-empty">No employment history extracted yet</p>
+                )}
               </div>
             </div>
 
@@ -267,6 +410,26 @@ function App() {
           </div>
         )}
       </div>
+
+      {pendingDeleteCandidate && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+          <div className="confirm-modal">
+            <h3 id="delete-title">Delete Candidate Profile?</h3>
+            <p>
+              This will permanently delete <strong>{pendingDeleteCandidate.name}</strong>, their resume file, and
+              related documents from the database.
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="secondary-btn" onClick={closeDeleteModal}>
+                Cancel
+              </button>
+              <button type="button" className="danger-btn" onClick={confirmDeleteCandidate}>
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,26 @@ import './App.css';
 
 const API_BASE = 'http://localhost:5000';
 
+const toTitleCase = (value) => {
+  if (!value || value === 'Not found') return value;
+  return value
+    .toString()
+    .toLowerCase()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const getInitials = (name) => {
+  if (!name || name === 'Not found') return 'NA';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+};
+
 function App() {
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -175,16 +195,53 @@ function App() {
 
         {selectedCandidate && (
           <div className="profile-view">
-            <h2>Candidate Profile</h2>
+            <div className="profile-header">
+              <div className="candidate-avatar">{getInitials(selectedCandidate.name)}</div>
+              <div className="profile-heading">
+                <h2>{toTitleCase(selectedCandidate.name)}</h2>
+                <p>{selectedCandidate.designation}</p>
+              </div>
+            </div>
+
             <div className="profile-details">
-              <p><strong>Name:</strong> {selectedCandidate.name}</p>
-              <p><strong>Email:</strong> {selectedCandidate.email}</p>
-              <p><strong>Phone:</strong> {selectedCandidate.phone}</p>
-              <p><strong>Company:</strong> {selectedCandidate.company}</p>
-              <p><strong>Designation:</strong> {selectedCandidate.designation}</p>
-              <p><strong>Skills:</strong> {selectedCandidate.skills.join(', ')}</p>
-              <p><strong>Confidence Score:</strong> {(selectedCandidate.confidence * 100).toFixed(1)}%</p>
-              <p><strong>Telegram Username:</strong> {selectedCandidate.telegram_username || 'Not set'}</p>
+              <div className="detail-item">
+                <span className="detail-label">Email</span>
+                <span className="detail-value">{selectedCandidate.email}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Phone</span>
+                <span className="detail-value">{selectedCandidate.phone}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Current Company</span>
+                <span className="detail-value">{selectedCandidate.company}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Confidence Score</span>
+                <span className="detail-value">{(selectedCandidate.confidence * 100).toFixed(1)}%</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Telegram</span>
+                <span className="detail-value">{selectedCandidate.telegram_username || 'Not set'}</span>
+              </div>
+            </div>
+
+            <div className="profile-skills">
+              <h3>Core Skills</h3>
+              <div className="skills-list">
+                {(selectedCandidate.skills || []).length > 0 ? (
+                  selectedCandidate.skills.map((skill, index) => (
+                    <span key={`${skill}-${index}`} className="skill-chip">
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="skills-empty">No skills extracted yet</span>
+                )}
+              </div>
+            </div>
+
+            <div className="profile-actions">
               <input
                 type="text"
                 placeholder="Enter Telegram username"

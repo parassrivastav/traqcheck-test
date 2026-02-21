@@ -139,6 +139,34 @@ curl -X POST http://localhost:5000/candidates/123e4567-e89b-12d3-a456-4266141740
 }
 ```
 
+### 6. POST /candidates/<id>/telegram
+Update candidate's Telegram username.
+
+**Request:**
+- Method: POST
+- Path Parameter: `id` (string)
+- Body: JSON
+```json
+{
+  "telegram_username": "username"
+}
+```
+
+**Sample Request:**
+```
+curl -X POST http://localhost:5000/candidates/123e4567-e89b-12d3-a456-426614174000/telegram \
+  -H "Content-Type: application/json" \
+  -d '{"telegram_username": "john_doe"}'
+```
+
+**Response:**
+- Status: 200 OK
+- Body:
+```json
+{
+  "message": "Telegram username updated"
+}
+```
+
 **Error Responses:**
-- 404 Not Found: Candidate not found
-- 400 Bad Request: Missing files, Invalid files
+- 400 Bad Request: telegram_username required

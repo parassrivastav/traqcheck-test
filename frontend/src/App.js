@@ -10,6 +10,7 @@ function App() {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [documents, setDocuments] = useState([]);
+  const [telegramUsername, setTelegramUsername] = useState('');
 
   useEffect(() => {
     fetchCandidates();
@@ -79,23 +80,16 @@ function App() {
     }
   };
 
-  const submitDocuments = async (panFile, aadhaarFile) => {
-    if (!selectedCandidate || !panFile || !aadhaarFile) return;
-
-    const formData = new FormData();
-    formData.append('pan', panFile);
-    formData.append('aadhaar', aadhaarFile);
-
+  const updateTelegram = async (id) => {
     try {
-      const response = await axios.post(`${API_BASE}/candidates/${selectedCandidate.id}/submit-documents`, formData);
-      console.log('API Call: POST /candidates/' + selectedCandidate.id + '/submit-documents', formData, 'Response:', response.data);
-      alert('Documents submitted successfully!');
-      // Refresh documents
-      const docsResponse = await axios.get(`${API_BASE}/candidates/${selectedCandidate.id}/documents`);
-      setDocuments(docsResponse.data);
+      const response = await axios.post(`${API_BASE}/candidates/${id}/telegram`, { telegram_username: telegramUsername });
+      console.log('API Call: POST /candidates/' + id + '/telegram', { telegram_username: telegramUsername }, 'Response:', response.data);
+      alert('Telegram username updated!');
+      setTelegramUsername('');
+      fetchCandidates(); // Refresh
     } catch (error) {
-      console.error('Error submitting documents:', error);
-      alert('Error submitting documents');
+      console.error('Error updating telegram:', error);
+      alert('Error updating telegram');
     }
   };
 
@@ -163,6 +157,14 @@ function App() {
               <p><strong>Designation:</strong> {selectedCandidate.designation}</p>
               <p><strong>Skills:</strong> {selectedCandidate.skills.join(', ')}</p>
               <p><strong>Confidence Score:</strong> {(selectedCandidate.confidence * 100).toFixed(1)}%</p>
+              <p><strong>Telegram Username:</strong> {selectedCandidate.telegram_username || 'Not set'}</p>
+              <input
+                type="text"
+                placeholder="Enter Telegram username"
+                onChange={(e) => setTelegramUsername(e.target.value)}
+                value={telegramUsername}
+              />
+              <button onClick={() => updateTelegram(selectedCandidate.id)}>Update Telegram</button>
             </div>
             <button onClick={requestDocuments}>Request Documents</button>
           </div>
@@ -173,7 +175,7 @@ function App() {
             <h2>Submitted Documents</h2>
             <ul>
               {documents.map((doc, index) => (
-                <li key={index}>{doc.type}: {doc.status}</li>
+                <li key={index}>{doc.type}: {doc.status} {doc.status === 'collected' && '✅'}</li>
               ))}
             </ul>
             <h3>Submit Documents</h3>

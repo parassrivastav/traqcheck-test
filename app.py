@@ -90,7 +90,8 @@ def init_db():
             company TEXT,
             designation TEXT,
             skills TEXT,
-            resume_path TEXT
+            resume_path TEXT,
+            telegram_username TEXT
         )''')
         conn.execute('''CREATE TABLE IF NOT EXISTS documents (
             id TEXT PRIMARY KEY,
@@ -143,7 +144,7 @@ def upload_resume():
 @app.route('/candidates', methods=['GET'])
 def list_candidates():
     with get_db() as conn:
-        candidates = conn.execute('SELECT id, name, email, phone, company, designation, skills FROM candidates').fetchall()
+        candidates = conn.execute('SELECT id, name, email, phone, company, designation, skills, telegram_username FROM candidates').fetchall()
     result = []
     for c in candidates:
         result.append({
@@ -155,7 +156,8 @@ def list_candidates():
             'designation': c['designation'],
             'skills': json.loads(c['skills']),
             'extraction_status': 'Extracted',
-            'confidence': 0.95
+            'confidence': 0.95,
+            'telegram_username': c['telegram_username']
         })
     return jsonify(result)
 
@@ -172,7 +174,8 @@ def get_candidate(id):
             'company': candidate['company'],
             'designation': candidate['designation'],
             'skills': json.loads(candidate['skills']),
-            'confidence': 0.95
+            'confidence': 0.95,
+            'telegram_username': candidate['telegram_username']
         })
     return jsonify({'error': 'Candidate not found'}), 404
 
@@ -226,6 +229,18 @@ def submit_documents(id):
         return jsonify({'message': 'Documents submitted successfully'}), 200
     return jsonify({'message': 'Documents submitted successfully'}), 200
     return jsonify({'error': 'Invalid files'}), 400
+
+@app.route('/candidates/<id>/telegram', methods=['POST'])
+def update_telegram(id):
+    data = request.get_json()
+    telegram_username = data.get('telegram_username')
+    if not telegram_username:
+        return jsonify({'error': 'telegram_username required'}), 400
+    
+    with get_db() as conn:
+        conn.execute('UPDATE candidates SET telegram_username = ? WHERE id = ?', (telegram_username, id))
+    
+    return jsonify({'message': 'Telegram username updated'}), 200
 
 @app.route('/candidates/<id>/documents', methods=['GET'])
 def get_documents(id):

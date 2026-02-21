@@ -7,16 +7,17 @@
 ### 1. candidates
 Stores candidate information extracted from resumes.
 
-| Column       | Type    | Description                          |
-|--------------|---------|--------------------------------------|
-| id           | TEXT    | Primary key, UUID                    |
-| name         | TEXT    | Candidate's name                     |
-| email        | TEXT    | Candidate's email                    |
-| phone        | TEXT    | Candidate's phone number             |
-| company      | TEXT    | Current or previous company          |
-| designation  | TEXT    | Job designation                      |
-| skills       | TEXT    | JSON array of skills                 |
-| resume_path  | TEXT    | Path to uploaded resume file         |
+| Column            | Type    | Description                          |
+|-------------------|---------|--------------------------------------|
+| id                | TEXT    | Primary key, UUID                    |
+| name              | TEXT    | Candidate's name                     |
+| email             | TEXT    | Candidate's email                    |
+| phone             | TEXT    | Candidate's phone number             |
+| company           | TEXT    | Current or previous company          |
+| designation       | TEXT    | Job designation                      |
+| skills            | TEXT    | JSON array of skills                 |
+| resume_path       | TEXT    | Path to uploaded resume file         |
+| telegram_username | TEXT    | Telegram username for bot interaction|
 
 ### 2. documents
 Stores submitted documents (PAN, Aadhaar).

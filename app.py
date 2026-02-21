@@ -8,7 +8,7 @@ from datetime import datetime
 import uuid
 from dotenv import load_dotenv
 from flask_cors import CORS
-from openai import extract_resume_info
+from resume_extractor import extract_resume_info
 
 load_dotenv()
 

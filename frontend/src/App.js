@@ -93,6 +93,33 @@ function App() {
     }
   };
 
+  const submitDocuments = async (panFile, aadhaarFile) => {
+    if (!selectedCandidate || !panFile || !aadhaarFile) return;
+
+    const formData = new FormData();
+    formData.append('pan', panFile);
+    formData.append('aadhaar', aadhaarFile);
+
+    try {
+      const response = await axios.post(
+        `${API_BASE}/candidates/${selectedCandidate.id}/submit-documents`,
+        formData
+      );
+      console.log(
+        'API Call: POST /candidates/' + selectedCandidate.id + '/submit-documents',
+        formData,
+        'Response:',
+        response.data
+      );
+      alert('Documents submitted successfully!');
+      const docsResponse = await axios.get(`${API_BASE}/candidates/${selectedCandidate.id}/documents`);
+      setDocuments(docsResponse.data);
+    } catch (error) {
+      console.error('Error submitting documents:', error);
+      alert('Error submitting documents');
+    }
+  };
+
   return (
     <div className="App">
       <header className="App-header">

@@ -9,12 +9,22 @@ echo "Starting the TraqCheck application..."
 
 VENV_DIR=".venv"
 PYTHON_BIN="python3"
+BOT_ENABLED=true
+BOT_PID=""
+FRONTEND_PID=""
+BACKEND_PID=""
 
 # Activate virtual environment if it exists
 if [ -d "$VENV_DIR" ]; then
     # shellcheck disable=SC1090
     source "$VENV_DIR/bin/activate"
     PYTHON_BIN="python"
+fi
+
+# Load env if present
+if [ -f ".env" ]; then
+    # shellcheck disable=SC1091
+    source ".env"
 fi
 
 # Check if app.py exists
@@ -35,37 +45,49 @@ if [ ! -f "telegram_bot.py" ]; then
     exit 1
 fi
 
-# Start the Telegram bot
-echo "Starting the Telegram AI agent..."
-$PYTHON_BIN telegram_bot.py &
-BOT_PID=$!
+cleanup() {
+    if [ -n "$BACKEND_PID" ]; then kill "$BACKEND_PID" 2>/dev/null; fi
+    if [ -n "$FRONTEND_PID" ]; then kill "$FRONTEND_PID" 2>/dev/null; fi
+    if [ -n "$BOT_PID" ]; then kill "$BOT_PID" 2>/dev/null; fi
+}
 
-# Wait a bit for the bot to start
-sleep 3
+trap cleanup EXIT INT TERM
 
-# Check if bot is running
-if kill -0 $BOT_PID 2>/dev/null; then
-    echo -e "${GREEN}Telegram bot started successfully!${NC}"
-else
-    echo -e "${RED}Failed to start the Telegram bot.${NC}"
-    exit 1
+# Start the Telegram bot only if API key is present
+if [ -z "${TELEGRAM_API_KEY:-}" ] || [[ "${TELEGRAM_API_KEY}" == your-* ]]; then
+    BOT_ENABLED=false
+    echo -e "${RED}TELEGRAM_API_KEY missing/placeholder; skipping Telegram bot startup.${NC}"
+fi
+
+if [ "$BOT_ENABLED" = true ]; then
+    echo "Starting the Telegram AI agent..."
+    $PYTHON_BIN telegram_bot.py &
+    BOT_PID=$!
+
+    sleep 3
+    if kill -0 "$BOT_PID" 2>/dev/null; then
+        echo -e "${GREEN}Telegram bot started successfully!${NC}"
+    else
+        echo -e "${RED}Failed to start the Telegram bot.${NC}"
+        exit 1
+    fi
 fi
 
 # Start the frontend
 echo "Starting the React frontend..."
 cd frontend
-npm start &
+HOST=127.0.0.1 npm start &
 FRONTEND_PID=$!
 
 # Wait a bit for the frontend to start
 sleep 5
 
 # Check if frontend is running
-if kill -0 $FRONTEND_PID 2>/dev/null; then
+if kill -0 "$FRONTEND_PID" 2>/dev/null; then
     echo -e "${GREEN}Frontend started successfully!${NC}"
 else
     echo -e "${RED}Failed to start the frontend.${NC}"
-    kill $BOT_PID 2>/dev/null
+    cleanup
     exit 1
 fi
 
@@ -80,16 +102,19 @@ BACKEND_PID=$!
 sleep 2
 
 # Check if the backend is running
-if kill -0 $BACKEND_PID 2>/dev/null; then
+if kill -0 "$BACKEND_PID" 2>/dev/null; then
     echo -e "${GREEN}Backend started successfully!${NC}"
     echo -e "${GREEN}Frontend running on http://localhost:3000${NC}"
     echo -e "${GREEN}Backend running on http://localhost:5000${NC}"
-    echo -e "${GREEN}Telegram bot is active${NC}"
+    if [ "$BOT_ENABLED" = true ]; then
+        echo -e "${GREEN}Telegram bot is active${NC}"
+    else
+        echo -e "${RED}Telegram bot is inactive (missing TELEGRAM_API_KEY).${NC}"
+    fi
     echo "Press Ctrl+C to stop all services."
-    wait $BACKEND_PID
+    wait "$BACKEND_PID"
 else
     echo -e "${RED}Failed to start the backend.${NC}"
-    kill $FRONTEND_PID 2>/dev/null
-    kill $BOT_PID 2>/dev/null
+    cleanup
     exit 1
 fi

@@ -8,6 +8,7 @@ NC='\033[0m' # No Color
 echo "Setting up the environment..."
 
 VENV_DIR=".venv"
+ENV_FILE=".env"
 
 # Check if Python 3 is installed
 if ! command -v python3 &> /dev/null; then
@@ -16,6 +17,12 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 echo -e "${GREEN}Python 3 found.${NC}"
+
+# Seed .env from template if missing
+if [ ! -f "$ENV_FILE" ] && [ -f ".env.example" ]; then
+    cp .env.example "$ENV_FILE"
+    echo -e "${GREEN}Created .env from .env.example.${NC}"
+fi
 
 # Create virtual environment if needed
 if [ ! -d "$VENV_DIR" ]; then

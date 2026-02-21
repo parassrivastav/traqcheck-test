@@ -115,6 +115,17 @@ uploads/
 *.sqlite
 *.sqlite3
 
+# Frontend
+node_modules/
+build/
+dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
 # IDE
 .vscode/
 .idea/

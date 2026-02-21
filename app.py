@@ -7,10 +7,13 @@ import re
 from datetime import datetime
 import uuid
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 load_dotenv()
 
 app = Flask(__name__)
+
+CORS(app)  # Enable CORS for all routes
 
 # Configuration from environment variables
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
@@ -116,13 +119,15 @@ def extract_resume_data(file_path, filename):
     company = "Example Corp"
     designation = "Software Engineer"
     skills = ["Python", "Flask", "SQL"]
+    confidence = 0.95  # Mock confidence score
     return {
         'name': name,
         'email': email,
         'phone': phone,
         'company': company,
         'designation': designation,
-        'skills': skills
+        'skills': skills,
+        'confidence': confidence
     }
 
 @app.route('/candidates/upload', methods=['POST'])
@@ -144,7 +149,7 @@ def upload_resume():
             conn.execute('INSERT INTO candidates (id, name, email, phone, company, designation, skills, resume_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                          (candidate_id, data['name'], data['email'], data['phone'], data['company'], data['designation'], json.dumps(data['skills']), file_path))
         
-        return jsonify({'id': candidate_id, 'message': 'Resume uploaded successfully'}), 201
+        return jsonify({'id': candidate_id, 'message': 'Resume uploaded successfully', 'confidence': data['confidence']}), 201
     return jsonify({'error': 'Invalid file type'}), 400
 
 @app.route('/candidates', methods=['GET'])
@@ -160,7 +165,9 @@ def list_candidates():
             'phone': c['phone'],
             'company': c['company'],
             'designation': c['designation'],
-            'skills': json.loads(c['skills'])
+            'skills': json.loads(c['skills']),
+            'extraction_status': 'Extracted',
+            'confidence': 0.95
         })
     return jsonify(result)
 
@@ -176,7 +183,8 @@ def get_candidate(id):
             'phone': candidate['phone'],
             'company': candidate['company'],
             'designation': candidate['designation'],
-            'skills': json.loads(candidate['skills'])
+            'skills': json.loads(candidate['skills']),
+            'confidence': 0.95
         })
     return jsonify({'error': 'Candidate not found'}), 404
 
@@ -228,7 +236,15 @@ def submit_documents(id):
                          (str(uuid.uuid4()), id, 'Aadhaar', aadhaar_path))
         
         return jsonify({'message': 'Documents submitted successfully'}), 200
+    return jsonify({'message': 'Documents submitted successfully'}), 200
     return jsonify({'error': 'Invalid files'}), 400
+
+@app.route('/candidates/<id>/documents', methods=['GET'])
+def get_documents(id):
+    with get_db() as conn:
+        documents = conn.execute('SELECT type, path, status FROM documents WHERE candidate_id = ?', (id,)).fetchall()
+    result = [{'type': d['type'], 'path': d['path'], 'status': d['status']} for d in documents]
+    return jsonify(result)
 
 if __name__ == '__main__':
     host = os.environ.get('HOST', '127.0.0.1')

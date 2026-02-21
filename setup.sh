@@ -28,13 +28,25 @@ fi
 echo -e "${GREEN}pip3 found.${NC}"
 
 # Install dependencies
-echo "Installing dependencies from requirements.txt..."
+echo "Installing backend dependencies from requirements.txt..."
 pip3 install -r requirements.txt
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Dependencies installed successfully.${NC}"
+    echo -e "${GREEN}Backend dependencies installed successfully.${NC}"
 else
-    echo -e "${RED}Failed to install dependencies.${NC}"
+    echo -e "${RED}Failed to install backend dependencies.${NC}"
     exit 1
 fi
+
+# Install frontend dependencies
+echo "Installing frontend dependencies..."
+cd frontend
+npm install
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Frontend dependencies installed successfully.${NC}"
+else
+    echo -e "${RED}Failed to install frontend dependencies.${NC}"
+    exit 1
+fi
+cd ..
 
 echo -e "${GREEN}Setup completed successfully!${NC}"

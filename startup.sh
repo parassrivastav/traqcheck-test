@@ -7,6 +7,16 @@ NC='\033[0m' # No Color
 
 echo "Starting the TraqCheck application..."
 
+VENV_DIR=".venv"
+PYTHON_BIN="python3"
+
+# Activate virtual environment if it exists
+if [ -d "$VENV_DIR" ]; then
+    # shellcheck disable=SC1090
+    source "$VENV_DIR/bin/activate"
+    PYTHON_BIN="python"
+fi
+
 # Check if app.py exists
 if [ ! -f "app.py" ]; then
     echo -e "${RED}Error: app.py not found.${NC}"
@@ -27,7 +37,7 @@ fi
 
 # Start the Telegram bot
 echo "Starting the Telegram AI agent..."
-python3 telegram_bot.py &
+$PYTHON_BIN telegram_bot.py &
 BOT_PID=$!
 
 # Wait a bit for the bot to start
@@ -63,7 +73,7 @@ cd ..
 
 # Start the backend
 echo "Starting the Flask backend..."
-python3 app.py &
+$PYTHON_BIN app.py &
 BACKEND_PID=$!
 
 # Wait a bit for the backend to start

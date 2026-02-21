@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import os
 import sqlite3
 import json
@@ -754,9 +754,29 @@ def telegram_webhook_info():
 @app.route('/candidates/<id>/documents', methods=['GET'])
 def get_documents(id):
     with get_db() as conn:
-        documents = conn.execute('SELECT type, path, status FROM documents WHERE candidate_id = ?', (id,)).fetchall()
-    result = [{'type': d['type'], 'path': d['path'], 'status': d['status']} for d in documents]
+        documents = conn.execute('SELECT id, type, path, status FROM documents WHERE candidate_id = ? ORDER BY rowid DESC', (id,)).fetchall()
+    result = [{
+        'id': d['id'],
+        'type': d['type'],
+        'path': d['path'],
+        'status': d['status'],
+        'file_url': f"/documents/{d['id']}/file"
+    } for d in documents]
     return jsonify(result)
+
+
+@app.route('/documents/<doc_id>/file', methods=['GET'])
+def get_document_file(doc_id):
+    with get_db() as conn:
+        doc = conn.execute('SELECT path FROM documents WHERE id = ?', (doc_id,)).fetchone()
+    if not doc:
+        return jsonify({'error': 'Document not found'}), 404
+
+    file_path = doc['path']
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({'error': 'Document file missing'}), 404
+
+    return send_file(file_path, as_attachment=False)
 
 
 @app.route('/candidates/<id>', methods=['DELETE'])

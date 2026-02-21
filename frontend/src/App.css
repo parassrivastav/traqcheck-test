@@ -403,6 +403,81 @@ input[type="file"] {
   gap: 10px;
 }
 
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.document-card {
+  border: 1px solid #dce7f3;
+  border-radius: 12px;
+  background: #f9fcff;
+  padding: 12px;
+}
+
+.document-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.document-card-head h4 {
+  margin: 0;
+  color: #123155;
+}
+
+.doc-status {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+
+.doc-status.ok {
+  color: #1f7246;
+  background: #e5f8ec;
+}
+
+.doc-status.pending {
+  color: #806018;
+  background: #fff4da;
+}
+
+.document-preview {
+  border-radius: 10px;
+  border: 1px solid #d3e0ef;
+  background: #ffffff;
+  overflow: hidden;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.document-preview img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.document-preview iframe {
+  width: 100%;
+  height: 260px;
+  border: none;
+}
+
+.document-preview a {
+  color: #1565c0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 @media (max-width: 640px) {
   .container {
     padding: 14px;

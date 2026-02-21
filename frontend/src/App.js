@@ -25,6 +25,19 @@ const getInitials = (name) => {
     .join('');
 };
 
+const resolveFileUrl = (fileUrl) => {
+  if (!fileUrl) return '';
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
+  return `${API_BASE}${fileUrl}`;
+};
+
+const isImageFile = (path = '') => {
+  const lower = path.toLowerCase();
+  return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].some((ext) => lower.endsWith(ext));
+};
+
+const isPdfFile = (path = '') => path.toLowerCase().endsWith('.pdf');
+
 function App() {
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -408,11 +421,35 @@ function App() {
         {selectedCandidate && (
           <div className="documents-section">
             <h2>Submitted Documents</h2>
-            <ul>
-              {documents.map((doc, index) => (
-                <li key={index}>{doc.type}: {doc.status} {doc.status === 'collected' && '✅'}</li>
-              ))}
-            </ul>
+            <div className="document-grid">
+              {documents.map((doc) => {
+                const fileSrc = resolveFileUrl(doc.file_url);
+                return (
+                  <div key={doc.id} className="document-card">
+                    <div className="document-card-head">
+                      <h4>{doc.type}</h4>
+                      <span className={`doc-status ${doc.status === 'collected' ? 'ok' : 'pending'}`}>
+                        {doc.status} {doc.status === 'collected' ? '✅' : ''}
+                      </span>
+                    </div>
+
+                    {doc.path ? (
+                      <div className="document-preview">
+                        {isImageFile(doc.path) && <img src={fileSrc} alt={`${doc.type} document`} loading="lazy" />}
+                        {isPdfFile(doc.path) && <iframe src={fileSrc} title={`${doc.type} preview`} />}
+                        {!isImageFile(doc.path) && !isPdfFile(doc.path) && (
+                          <a href={fileSrc} target="_blank" rel="noreferrer">
+                            Open document
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="skills-empty">No file attached yet</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
             <h3>Submit Documents</h3>
             <DocumentUpload onSubmit={submitDocuments} />
           </div>

@@ -8,6 +8,7 @@ from datetime import datetime
 import uuid
 from dotenv import load_dotenv
 from flask_cors import CORS
+from openai import extract_resume_info
 
 load_dotenv()
 
@@ -112,23 +113,10 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def extract_resume_data(file_path, filename):
-    # Mock extraction - in real app, use NLP libraries
-    name = "John Doe"
-    email = "john.doe@example.com"
-    phone = "+1234567890"
-    company = "Example Corp"
-    designation = "Software Engineer"
-    skills = ["Python", "Flask", "SQL"]
-    confidence = 0.95  # Mock confidence score
-    return {
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'company': company,
-        'designation': designation,
-        'skills': skills,
-        'confidence': confidence
-    }
+    # Extract data using OpenAI
+    data = extract_resume_info(file_path)
+    data['confidence'] = 0.95  # Add confidence score
+    return data
 
 @app.route('/candidates/upload', methods=['POST'])
 def upload_resume():

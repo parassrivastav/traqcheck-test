@@ -48,6 +48,7 @@ See `documentation/database-doc.md` for database structure.
 - `UPLOAD_FOLDER`: Folder for uploaded files
 - `HOST`: Server host (default: 127.0.0.1)
 - `PORT`: Server port (default: 5000)
+- `OPENAI_API_KEY`: OpenAI API key for resume parsing
 
 ## Project Structure
 
@@ -71,6 +72,6 @@ traqcheck-test/
 
 ## Technologies Used
 
-- **Backend**: Flask, SQLite, python-dotenv, flask-cors
+- **Backend**: Flask, SQLite, python-dotenv, flask-cors, OpenAI API, PyPDF2, python-docx
 - **Frontend**: React, axios, react-dropzone
 - **Deployment**: Development servers with hot reload

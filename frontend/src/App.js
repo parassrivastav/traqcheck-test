@@ -111,6 +111,14 @@ function App() {
     return () => clearInterval(intervalId);
   }, [fetchCandidates]);
 
+  useEffect(() => {
+    if (!selectedCandidate) {
+      setTelegramUsername('');
+      return;
+    }
+    setTelegramUsername(selectedCandidate.telegram_username || selectedCandidate.phone || '');
+  }, [selectedCandidate]);
+
   const onDrop = async (acceptedFiles) => {
     const file = acceptedFiles[0];
     if (!file) return;
@@ -166,10 +174,10 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/candidates/${selectedCandidate.id}/request-documents`);
       console.log('API Call: POST /candidates/' + selectedCandidate.id + '/request-documents', {}, 'Response:', response.data);
-      showToast('Document request sent successfully', 'success');
+      showToast(response.data.message || 'Mr Traqchecker has started document collection', 'success');
     } catch (error) {
       console.error('Error requesting documents:', error);
-      showToast('Error requesting documents', 'error');
+      showToast(error?.response?.data?.error || 'Error requesting documents', 'error');
     }
   };
 
@@ -387,13 +395,13 @@ function App() {
             <div className="profile-actions">
               <input
                 type="text"
-                placeholder="Enter Telegram username"
+                placeholder="Enter Telegram username or phone"
                 onChange={(e) => setTelegramUsername(e.target.value)}
                 value={telegramUsername}
               />
               <button onClick={() => updateTelegram(selectedCandidate.id)}>Update Telegram</button>
             </div>
-            <button onClick={requestDocuments}>Request Documents</button>
+            <button onClick={requestDocuments}>Ask Mr Traqchecker to Request Documents</button>
           </div>
         )}
 

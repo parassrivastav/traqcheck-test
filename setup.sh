@@ -77,4 +77,13 @@ else
 fi
 cd ..
 
+if [ -f "$ENV_FILE" ]; then
+    if ! grep -qE '^TELEGRAM_API_TOKEN=' "$ENV_FILE" && ! grep -qE '^TELEGRAM_API_KEY=' "$ENV_FILE"; then
+        echo -e "${RED}Warning: Telegram token is missing in .env (TELEGRAM_API_TOKEN or TELEGRAM_API_KEY).${NC}"
+    fi
+    if ! grep -qE '^PUBLIC_BASE_URL=' "$ENV_FILE"; then
+        echo -e "${RED}Warning: PUBLIC_BASE_URL missing in .env. Telegram webhook setup will fail.${NC}"
+    fi
+fi
+
 echo -e "${GREEN}Setup completed successfully!${NC}"

@@ -3,170 +3,147 @@
 ## Base URL
 `http://localhost:5000`
 
-## Endpoints
+## Candidate APIs
 
-### 1. POST /candidates/upload
-Upload a candidate's resume (PDF or DOCX).
+### POST /candidates/upload
+Upload and parse a resume (PDF/DOCX). Data is saved only when extraction succeeds.
 
-**Request:**
-- Method: POST
-- Content-Type: multipart/form-data
+- Content-Type: `multipart/form-data`
 - Body: `resume` (file)
 
-**Sample Request:**
-```
-curl -X POST http://localhost:5000/candidates/upload \
-  -F "resume=@resume.pdf"
-```
-
-**Response:**
-- Status: 201 Created
-- Body:
+Success `201`:
 ```json
 {
   "id": "uuid",
-  "message": "Resume uploaded successfully"
+  "confidence": 0.95,
+  "messages": [
+    "Resume uploaded successfully",
+    "Extraction successful",
+    "Fields have been saved to DB"
+  ]
 }
 ```
 
-**Error Responses:**
-- 400 Bad Request: No file part, No selected file, Invalid file type
+Error examples:
+- `400` invalid file input
+- `422` extraction failure with reason
+- `500` DB or server failure
 
-### 2. GET /candidates
+### GET /candidates
 List all candidates.
 
-**Request:**
-- Method: GET
-
-**Sample Request:**
-```
-curl -X GET http://localhost:5000/candidates
-```
-
-**Response:**
-- Status: 200 OK
-- Body: Array of candidates
+Success `200`:
 ```json
 [
   {
     "id": "uuid",
     "name": "John Doe",
-    "email": "john.doe@example.com",
+    "email": "john@example.com",
     "phone": "+1234567890",
     "company": "Example Corp",
-    "designation": "Software Engineer",
-    "skills": ["Python", "Flask", "SQL"]
+    "designation": "Engineering Lead",
+    "skills": ["Python", "Flask"],
+    "company_history": [
+      {"company": "Example Corp", "duration": "2024 - Present", "is_current": true}
+    ],
+    "extraction_status": "Extracted",
+    "confidence": 0.95,
+    "telegram_username": "john_doe"
   }
 ]
 ```
 
-### 3. GET /candidates/<id>
-Get a candidate's parsed profile.
+### GET /candidates/<id>
+Fetch full candidate profile.
 
-**Request:**
-- Method: GET
-- Path Parameter: `id` (string)
+- `200` candidate payload
+- `404` not found
 
-**Sample Request:**
-```
-curl -X GET http://localhost:5000/candidates/123e4567-e89b-12d3-a456-426614174000
-```
+### DELETE /candidates/<id>
+Permanently deletes candidate, related documents/requests, and stored files.
 
-**Response:**
-- Status: 200 OK
-- Body:
+Success `200`:
 ```json
-{
-  "id": "uuid",
-  "name": "John Doe",
-  "email": "john.doe@example.com",
-  "phone": "+1234567890",
-  "company": "Example Corp",
-  "designation": "Software Engineer",
-  "skills": ["Python", "Flask", "SQL"]
-}
+{"message":"Candidate profile and files deleted permanently"}
 ```
 
-**Error Responses:**
-- 404 Not Found: Candidate not found
+### POST /candidates/<id>/telegram
+Update Telegram identity (username/phone/chat-id as your workflow requires).
 
-### 4. POST /candidates/<id>/request-documents
-Generate and log a personalized request for PAN/Aadhaar documents.
-
-**Request:**
-- Method: POST
-- Path Parameter: `id` (string)
-
-**Sample Request:**
-```
-curl -X POST http://localhost:5000/candidates/123e4567-e89b-12d3-a456-426614174000/request-documents
+Request:
+```json
+{"telegram_username":"john_doe"}
 ```
 
-**Response:**
-- Status: 200 OK
-- Body:
+- `200` updated
+- `400` missing value
+
+### POST /candidates/<id>/request-documents
+Triggers Mr Traqchecker over Telegram to start PAN/Aadhaar collection.
+
+Success `200`:
 ```json
 {
   "request_id": "uuid",
-  "message": "Dear John Doe, please provide your PAN and Aadhaar documents for verification."
+  "message": "Mr Traqchecker has initiated document collection on Telegram."
 }
 ```
 
-**Error Responses:**
-- 404 Not Found: Candidate not found
+Possible errors:
+- `404` candidate not found
+- `409` Telegram link required (candidate must `/start <phone_number>` once)
+- `500` bot token misconfiguration
+- `502` Telegram delivery/API failure
 
-### 5. POST /candidates/<id>/submit-documents
-Submit PAN and Aadhaar documents.
+### GET /candidates/<id>/documents
+List collected/uploaded documents.
 
-**Request:**
-- Method: POST
-- Content-Type: multipart/form-data
-- Body: `pan` (file), `aadhaar` (file)
-
-**Sample Request:**
-```
-curl -X POST http://localhost:5000/candidates/123e4567-e89b-12d3-a456-426614174000/submit-documents \
-  -F "pan=@pan.jpg" \
-  -F "aadhaar=@aadhaar.jpg"
+Success `200`:
+```json
+[
+  {"type":"PAN","path":"uploads/...","status":"collected"}
+]
 ```
 
-**Response:**
-- Status: 200 OK
-- Body:
+### POST /candidates/<id>/submit-documents
+Manual web upload of PAN + Aadhaar from frontend.
+
+- Content-Type: `multipart/form-data`
+- Body: `pan` file, `aadhaar` file
+
+## Telegram Webhook APIs
+
+### POST /telegram/webhook
+Telegram webhook receiver endpoint.
+
+- Validates `X-Telegram-Bot-Api-Secret-Token` when `TELEGRAM_WEBHOOK_SECRET` is configured.
+- Processes candidate linking (`/start <phone_number>`) and PAN/Aadhaar collection conversation.
+
+### POST /telegram/setup-webhook
+Registers Telegram webhook URL using `PUBLIC_BASE_URL`.
+
+Success `200`:
 ```json
 {
-  "message": "Documents submitted successfully"
+  "message": "Telegram webhook configured",
+  "webhook_url": "https://<public-base>/telegram/webhook"
 }
 ```
 
-### 6. POST /candidates/<id>/telegram
-Update candidate's Telegram username.
+### GET /telegram/webhook-info
+Returns Telegram webhook status from Bot API.
 
-**Request:**
-- Method: POST
-- Path Parameter: `id` (string)
-- Body: JSON
-```json
-{
-  "telegram_username": "username"
-}
-```
+## Suggested Setup Sequence
 
-**Sample Request:**
+1. Configure `.env` with `TELEGRAM_API_TOKEN` (or `TELEGRAM_API_KEY`) and `PUBLIC_BASE_URL`.
+2. Start backend.
+3. Call:
+```bash
+curl -X POST http://127.0.0.1:5000/telegram/setup-webhook
 ```
-curl -X POST http://localhost:5000/candidates/123e4567-e89b-12d3-a456-426614174000/telegram \
-  -H "Content-Type: application/json" \
-  -d '{"telegram_username": "john_doe"}'
+4. Verify:
+```bash
+curl http://127.0.0.1:5000/telegram/webhook-info
 ```
-
-**Response:**
-- Status: 200 OK
-- Body:
-```json
-{
-  "message": "Telegram username updated"
-}
-```
-
-**Error Responses:**
-- 400 Bad Request: telegram_username required
+5. Candidate sends `/start <phone_number_used_in_application>` to bot once.
+6. Use frontend button `Ask Mr Traqchecker to Request Documents`.

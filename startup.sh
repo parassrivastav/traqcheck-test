@@ -9,8 +9,6 @@ echo "Starting the TraqCheck application..."
 
 VENV_DIR=".venv"
 PYTHON_BIN="python3"
-BOT_ENABLED=true
-BOT_PID=""
 FRONTEND_PID=""
 BACKEND_PID=""
 
@@ -39,39 +37,12 @@ if [ ! -d "frontend" ]; then
     exit 1
 fi
 
-# Check if telegram_bot.py exists
-if [ ! -f "telegram_bot.py" ]; then
-    echo -e "${RED}Error: telegram_bot.py not found.${NC}"
-    exit 1
-fi
-
 cleanup() {
     if [ -n "$BACKEND_PID" ]; then kill "$BACKEND_PID" 2>/dev/null; fi
     if [ -n "$FRONTEND_PID" ]; then kill "$FRONTEND_PID" 2>/dev/null; fi
-    if [ -n "$BOT_PID" ]; then kill "$BOT_PID" 2>/dev/null; fi
 }
 
 trap cleanup EXIT INT TERM
-
-# Start the Telegram bot only if API key is present
-if [ -z "${TELEGRAM_API_KEY:-}" ] || [[ "${TELEGRAM_API_KEY}" == your-* ]]; then
-    BOT_ENABLED=false
-    echo -e "${RED}TELEGRAM_API_KEY missing/placeholder; skipping Telegram bot startup.${NC}"
-fi
-
-if [ "$BOT_ENABLED" = true ]; then
-    echo "Starting the Telegram AI agent..."
-    $PYTHON_BIN telegram_bot.py &
-    BOT_PID=$!
-
-    sleep 3
-    if kill -0 "$BOT_PID" 2>/dev/null; then
-        echo -e "${GREEN}Telegram bot started successfully!${NC}"
-    else
-        echo -e "${RED}Failed to start the Telegram bot.${NC}"
-        exit 1
-    fi
-fi
 
 # Start the frontend
 echo "Starting the React frontend..."
@@ -106,10 +77,19 @@ if kill -0 "$BACKEND_PID" 2>/dev/null; then
     echo -e "${GREEN}Backend started successfully!${NC}"
     echo -e "${GREEN}Frontend running on http://localhost:3000${NC}"
     echo -e "${GREEN}Backend running on http://localhost:5000${NC}"
-    if [ "$BOT_ENABLED" = true ]; then
-        echo -e "${GREEN}Telegram bot is active${NC}"
+
+    TELEGRAM_TOKEN="${TELEGRAM_API_TOKEN:-${TELEGRAM_API_KEY:-}}"
+    if [ -n "${TELEGRAM_TOKEN:-}" ] && [[ "${TELEGRAM_TOKEN}" != your-* ]] && \
+       [ -n "${PUBLIC_BASE_URL:-}" ] && [[ "${PUBLIC_BASE_URL}" != https://your-* ]]; then
+        if command -v curl >/dev/null 2>&1; then
+            echo "Configuring Telegram webhook..."
+            curl -sS -X POST http://127.0.0.1:5000/telegram/setup-webhook >/tmp/traqcheck_webhook_setup.json || true
+            echo -e "${GREEN}Webhook setup response saved to /tmp/traqcheck_webhook_setup.json${NC}"
+        else
+            echo -e "${RED}curl not found; skipping automatic webhook setup.${NC}"
+        fi
     else
-        echo -e "${RED}Telegram bot is inactive (missing TELEGRAM_API_KEY).${NC}"
+        echo -e "${RED}Telegram webhook not auto-configured. Set TELEGRAM_API_TOKEN/TELEGRAM_API_KEY and PUBLIC_BASE_URL in .env.${NC}"
     fi
     echo "Press Ctrl+C to stop all services."
     wait "$BACKEND_PID"

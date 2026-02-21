@@ -1,10 +1,13 @@
 import json
 import os
 import re
+import logging
 
 from docx import Document
 from openai import OpenAI
 from PyPDF2 import PdfReader
+
+logging.getLogger("PyPDF2").setLevel(logging.ERROR)
 
 
 class ResumeExtractionError(Exception):

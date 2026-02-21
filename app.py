@@ -33,16 +33,40 @@ PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', '').rstrip('/')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MR_TRAQCHECKER_INTRO = (
-    "Hi I am Mr Traqchecker from Traqcheckjobs.com. "
-    "Please provide your Aadhaar and PAN card. "
-    "You can send image, PDF, or text details. "
-    "I will help you complete this verification."
-)
-
 SESSION_STAGE_DONE = 'done'
 SESSION_STAGE_PAN = 'pan'
 SESSION_STAGE_AADHAAR = 'aadhaar'
+
+
+def candidate_display_name(candidate):
+    name = ''
+    if candidate:
+        if isinstance(candidate, dict):
+            name = str(candidate.get('name') or '').strip()
+        else:
+            try:
+                name = str(candidate['name'] or '').strip()
+            except (KeyError, TypeError, IndexError):
+                name = ''
+    return name or 'there'
+
+
+def mr_traqchecker_intro_message(candidate):
+    name = candidate_display_name(candidate)
+    return (
+        f"Hi {name} I am Mr Traqchecker from Traqcheckjobs.com. "
+        "Please provide your Aadhaar and PAN card. "
+        "You can send image, PDF, or text details. "
+        "I will help you complete this verification."
+    )
+
+
+def mr_traqchecker_ready_message(candidate):
+    name = candidate_display_name(candidate)
+    return (
+        f"Hi {name}, I am Mr Traqchecker from Traqcheckjobs.com. "
+        "I am ready to collect your PAN and Aadhaar documents."
+    )
 
 @app.route('/')
 def home():
@@ -248,18 +272,24 @@ def find_candidate_for_identity(identity, username=None):
 
 def get_candidate_by_chat_id(chat_id):
     with get_db() as conn:
-        link = conn.execute(
-            'SELECT candidate_id FROM telegram_links WHERE chat_id = ?',
+        candidate = conn.execute(
+            'SELECT c.* FROM telegram_links tl '
+            'JOIN candidates c ON c.id = tl.candidate_id '
+            'WHERE tl.chat_id = ? '
+            'ORDER BY tl.updated_at DESC '
+            'LIMIT 1',
             (str(chat_id),)
         ).fetchone()
-        if not link:
-            return None
-        candidate = conn.execute('SELECT * FROM candidates WHERE id = ?', (link['candidate_id'],)).fetchone()
-    return candidate
+        return candidate
 
 
 def upsert_telegram_link(candidate_id, chat_id, telegram_identity=''):
     with get_db() as conn:
+        # Keep chat_id mapped to a single latest candidate to avoid stale lookups.
+        conn.execute(
+            'DELETE FROM telegram_links WHERE chat_id = ? AND candidate_id != ?',
+            (str(chat_id), candidate_id)
+        )
         conn.execute(
             'INSERT INTO telegram_links (candidate_id, chat_id, telegram_identity, updated_at) VALUES (?, ?, ?, ?) '
             'ON CONFLICT(candidate_id) DO UPDATE SET chat_id = excluded.chat_id, telegram_identity = excluded.telegram_identity, updated_at = excluded.updated_at',
@@ -357,7 +387,7 @@ def mr_traqchecker_response(stage, user_text, history):
 
 def start_document_collection(chat_id, candidate):
     upsert_session(chat_id, candidate['id'], SESSION_STAGE_PAN, '')
-    telegram_send_message(chat_id, MR_TRAQCHECKER_INTRO)
+    telegram_send_message(chat_id, mr_traqchecker_intro_message(candidate))
     telegram_send_message(chat_id, 'Please share your PAN document first.')
 
 @app.route('/candidates/upload', methods=['POST'])
@@ -478,7 +508,7 @@ def request_documents(id):
     if not candidate:
         return jsonify({'error': 'Candidate not found'}), 404
 
-    request_text = MR_TRAQCHECKER_INTRO
+    request_text = mr_traqchecker_intro_message(candidate)
     request_id = str(uuid.uuid4())
     timestamp = datetime.now().isoformat()
 
@@ -626,7 +656,7 @@ def process_telegram_update(update):
         session = get_session(chat_id)
         telegram_send_message(
             chat_id,
-            'Hi, I am Mr Traqchecker from Traqcheckjobs.com. I am ready to collect your PAN and Aadhaar documents.'
+            mr_traqchecker_ready_message(candidate)
         )
         if not session:
             upsert_session(chat_id, candidate['id'], SESSION_STAGE_PAN, '')

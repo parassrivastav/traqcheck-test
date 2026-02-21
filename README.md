@@ -96,7 +96,7 @@ traqcheck-test/
 - **AI Agent**: LangChain, OpenAI, Telegram Bot API webhook
 - **Deployment**: Development servers with hot reload
 
-## Architecture Overview (10 Lines)
+## Architecture Overview
 
 1. We implemented a full-stack architecture with a React frontend (`react`, `axios`, `react-dropzone`) and a Flask REST backend (`flask`, `flask-cors`).
 2. The frontend at `localhost:3000` handles resume upload, candidate dashboard, profile view, and document status tracking.
